@@ -1,0 +1,26 @@
+{% load journal_extras %}
+<div id="cal-view">
+<div class="panel">
+  <div class="cal-head">
+    <button class="btn btn-ghost" hx-get="{% url 'monthly_view' %}?year={{ prev_year }}"
+            hx-target="#cal-view" hx-swap="outerHTML"><i class="ph ph-caret-left"></i></button>
+    <h2 style="margin:0">{{ cal_year }} · <span class="{{ year_pnl|pnl_class }}">{{ year_pnl|money }}</span></h2>
+    <button class="btn btn-ghost" hx-get="{% url 'monthly_view' %}?year={{ next_year }}"
+            hx-target="#cal-view" hx-swap="outerHTML"><i class="ph ph-caret-right"></i></button>
+  </div>
+  <div class="cal cal-months">
+    {% for c in cells %}
+      <div class="cell {% if c.count %}{% if c.pnl >= 0 %}win{% else %}loss{% endif %}{% endif %}"
+           {% if c.count %}hx-get="{% url 'daily_view' %}?year={{ cal_year }}&month={{ c.month }}"
+           hx-target="#cal-view" hx-swap="outerHTML" style="cursor:pointer" title="Open {{ c.label }}"{% endif %}>
+        <div class="d">{{ c.label }}</div>
+        {% if c.count %}
+          <div class="pnl {{ c.pnl|pnl_class }}">{{ c.pnl|money }}</div>
+          <small>{{ c.count }} trade{{ c.count|pluralize }}</small>
+        {% else %}<small class="muted">—</small>{% endif %}
+      </div>
+    {% endfor %}
+  </div>
+  <p class="muted" style="margin-top:.6rem">Click a month to open its daily view.</p>
+</div>
+</div>

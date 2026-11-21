@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load journal_extras %}
+{% block title %}{{ trade.symbol }} · Trade{% endblock %}
+{% block content %}
+<div class="flex space">
+  <h1>{{ trade.symbol }} <span class="chip-{{ trade.direction }}">{{ trade.get_direction_display }}</span> {{ trade.volume }} lots</h1>
+  <a class="muted" href="{% url 'trade_list' %}">← All trades</a>
+</div>
+
+<div class="grid grid-2">
+  <div class="panel">
+    <h2>Execution</h2>
+    <table>
+      <tr><th>Entry</th><td>{{ trade.entry_price }} @ {{ trade.entry_time|date:"Y-m-d H:i" }}</td></tr>
+      <tr><th>Exit</th><td>{% if trade.exit_price %}{{ trade.exit_price }} @ {{ trade.exit_time|date:"Y-m-d H:i" }}{% else %}<span class="tag">Open</span>{% endif %}</td></tr>
+      <tr><th>SL / TP</th><td>{{ trade.sl|default:"—" }} / {{ trade.tp|default:"—" }}</td></tr>
+      <tr><th>Pips</th><td class="{% if trade.pips >= 0 %}pos{% else %}neg{% endif %}">{{ trade.pips|default:"—" }}</td></tr>
+      <tr><th>Net P/L</th><td class="{{ trade.net_profit|pnl_class }}">{{ trade.net_profit|money }}</td></tr>
+      <tr><th>Strategy</th><td>{{ trade.strategy.name|default:"—" }}</td></tr>
+      <tr><th>Tags</th><td>{% for tag in trade.tags.all %}<span class="tag">{{ tag.name }}</span> {% endfor %}</td></tr>
+    </table>
+    {% if trade.notes %}<p class="muted mt">{{ trade.notes }}</p>{% endif %}
+  </div>
+
+  <div class="panel review-card">
+    <h2><i class="ph ph-note-pencil"></i> 2-day review</h2>
+    {% if trade.review_completed %}
+      {% include "partials/review_done.html" with trade=trade %}
+    {% elif trade.review_overdue %}
+      <p class="muted">Due {{ trade.review_due_at|date:"M d" }} — complete it below.</p>
+      {% include "partials/review_form.html" with trade=trade form=review_form %}
+    {% else %}
+      <p class="muted">Review opens {{ trade.review_due_at|date:"M d, H:i" }} (2 days after exit).</p>
+    {% endif %}
+  </div>
+</div>
+
+{% if trade.images.all %}
+<div class="panel mt"><h2>Screenshots</h2>
+  <div class="grid grid-4">
+    {% for img in trade.images.all %}
+      <figure style="margin:0"><img src="{{ img.image.url }}" style="width:100%;border-radius:6px" alt="{{ img.caption }}">
+        <figcaption class="muted">{{ img.caption }}</figcaption></figure>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

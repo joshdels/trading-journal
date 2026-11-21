@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load journal_extras %}
+{% block title %}Charts · Trading Journal{% endblock %}
+{% block content %}
+<h1>Pairs you've traded</h1>
+<div class="panel">
+  <p class="muted">Net pips per symbol across closed trades. Green = net positive, red = net negative.
+    Count, win rate and net P/L are shown per pair.</p>
+  {% for p in pairs %}
+    <div class="pair-row">
+      <span class="pair-name">{{ p.symbol }}</span>
+      <div class="bar-track">
+        <div class="bar-mid"></div>
+        {% if p.pips >= 0 %}
+          <div class="bar pos" style="width: calc({{ p.pips }} / {{ max_abs }} * 50%)"></div>
+        {% else %}
+          <div class="bar neg" style="width: calc({{ p.pips }} / {{ max_abs }} * -50%)"></div>
+        {% endif %}
+      </div>
+      <span class="{{ p.pips|pnl_class }}" style="text-align:right">{{ p.pips|pips }}</span>
+      <span class="pair-meta">
+        {{ p.count }} trade{{ p.count|pluralize }} · {{ p.win_rate }}% win ·
+        <span class="{{ p.pnl|pnl_class }}">{{ p.pnl|money }}</span>
+      </span>
+    </div>
+  {% empty %}<p class="muted">No closed trades yet. Run <code>make seed</code> or import an MT5 export.</p>{% endfor %}
+</div>
+{% endblock %}

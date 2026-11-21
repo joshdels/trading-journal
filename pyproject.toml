@@ -1,0 +1,21 @@
+[project]
+name = "trading-journal"
+version = "0.1.0"
+description = "Personal forex trading journal for MetaTrader 5 data (Django + HTMX)."
+requires-python = ">=3.13"
+dependencies = [
+    "Django>=5.1",
+    "django-ratelimit>=4.1",
+    "Pillow>=11.0",
+    "beautifulsoup4>=4.12",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-django>=4.9",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["test_*.py", "tests.py"]

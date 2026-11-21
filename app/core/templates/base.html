@@ -1,0 +1,49 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Trading Journal{% endblock %}</title>
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1"></link>
+  <link rel="stylesheet" href="{% static 'css/theme.css' %}">
+  <script src="https://unpkg.com/htmx.org@2.0.3" defer></script>
+</head>
+<body>
+{% if user.is_authenticated %}
+<header class="topbar">
+  <a class="brand" href="{% url 'portal' %}"><i class="ph ph-chart-line-up"></i> {{ SITE_NAME }}</a>
+  <nav>
+    <a href="{% url 'portal' %}"><i class="ph ph-gauge"></i> Portal</a>
+    <a href="{% url 'trade_list' %}"><i class="ph ph-list-checks"></i> Trades</a>
+    <a href="{% url 'calendar' %}"><i class="ph ph-calendar-dots"></i> Calendar</a>
+    <a href="{% url 'charts' %}"><i class="ph ph-chart-bar"></i> Charts</a>
+    <a href="{% url 'weekly_list' %}"><i class="ph ph-notebook"></i> Weekly</a>
+    <a href="{% url 'imports' %}"><i class="ph ph-upload-simple"></i> Import</a>
+  </nav>
+  <div class="topbar-right">
+    {% if reviews_due_count %}
+      <a class="badge badge-warn" href="{% url 'portal' %}" title="Reviews due">
+        <i class="ph ph-bell-ringing"></i> {{ reviews_due_count }}
+      </a>
+    {% endif %}
+    <form method="post" action="{% url 'logout' %}" class="inline">
+      {% csrf_token %}<button class="linklike" type="submit"><i class="ph ph-sign-out"></i></button>
+    </form>
+  </div>
+</header>
+
+{% if is_weekend %}
+<div class="weekend-banner"><i class="ph ph-coffee"></i> It's the weekend — time for your weekly review.
+  <a href="{% url 'weekly_list' %}">Open weekly review</a></div>
+{% endif %}
+{% endif %}
+
+<main class="wrap">
+  {% if messages %}
+    {% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}
+  {% endif %}
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

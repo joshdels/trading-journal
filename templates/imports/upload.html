@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Import · Trading Journal{% endblock %}
+{% block content %}
+<h1>Import MT5 history</h1>
+<div class="grid grid-2">
+  <div class="panel">
+    <h2>Upload deal export (CSV)</h2>
+    <p class="muted">Export your deal history from MT5 (Account History → right-click → Report → CSV),
+      then upload it here. Re-imports are safe — duplicate tickets are skipped.</p>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}{{ form.as_p }}
+      <button class="btn mt" type="submit"><i class="ph ph-upload-simple"></i> Import</button>
+    </form>
+  </div>
+  <div class="panel">
+    <h2>Recent imports</h2>
+    <table>
+      <thead><tr><th>When</th><th>Source</th><th>Created</th><th>Skipped</th></tr></thead>
+      <tbody>
+      {% for b in batches %}
+        <tr><td class="muted">{{ b.created_at|date:"M d H:i" }}</td><td>{{ b.source_name|default:b.get_kind_display }}</td>
+          <td class="pos">{{ b.rows_created }}</td><td class="muted">{{ b.rows_skipped }}</td></tr>
+      {% empty %}<tr><td colspan="4" class="muted">No imports yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

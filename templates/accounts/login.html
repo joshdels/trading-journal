@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Sign in · Trading Journal{% endblock %}
+{% block content %}
+<div class="login-wrap">
+  <div class="panel">
+    <h1 style="display:flex;gap:.4rem;align-items:center"><i class="ph ph-chart-line-up"></i> Trading Journal</h1>
+    {% if form.errors %}<div class="flash" style="border-left-color:var(--red)">Invalid credentials.</div>{% endif %}
+    <form method="post">
+      {% csrf_token %}
+      <label>Username</label>{{ form.username }}
+      <label>Password</label>{{ form.password }}
+      <button class="btn mt" type="submit" style="width:100%"><i class="ph ph-sign-in"></i> Sign in</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
