@@ -141,13 +141,20 @@ class Trade(models.Model):
 
 
 class TradeImage(models.Model):
+    class Stage(models.TextChoices):
+        ENTRY = "entry", "Entry"
+        EXIT = "exit", "Exit"
+        POST = "post", "Post-trade"
+
     trade = models.ForeignKey(Trade, on_delete=models.CASCADE, related_name="images")
     image = models.ImageField(upload_to="trades/%Y/%m/")
+    stage = models.CharField(max_length=5, choices=Stage.choices, default=Stage.ENTRY)
     caption = models.CharField(max_length=160, blank=True)
     order = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["order", "id"]
+        ordering = ["stage", "order", "id"]
 
     def __str__(self):
-        return self.caption or f"Image #{self.pk}"
+        return self.caption or f"{self.get_stage_display()} image #{self.pk}"

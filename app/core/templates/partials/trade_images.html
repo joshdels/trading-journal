@@ -1,0 +1,32 @@
+<div id="trade-images">
+  {% for label, imgs in images_by_stage %}
+    <h3 class="stage-title">{{ label }} <span class="muted">({{ imgs|length }})</span></h3>
+    {% if imgs %}
+      <div class="img-grid">
+        {% for img in imgs %}
+          <figure class="img-card">
+            <a href="{{ img.image.url }}" target="_blank"><img src="{{ img.image.url }}" alt="{{ img.caption }}"></a>
+            <figcaption>
+              <span class="muted">{{ img.caption }}</span>
+              <button class="linklike" title="Delete"
+                      hx-post="{% url 'trade_image_delete' trade.pk img.id %}"
+                      hx-target="#trade-images" hx-swap="outerHTML"
+                      hx-confirm="Delete this image?"><i class="ph ph-trash"></i></button>
+            </figcaption>
+          </figure>
+        {% endfor %}
+      </div>
+    {% else %}<p class="muted" style="margin:.2rem 0 .8rem">No {{ label|lower }} images yet.</p>{% endif %}
+  {% endfor %}
+
+  <form class="img-upload" hx-post="{% url 'trade_image_upload' trade.pk %}"
+        hx-target="#trade-images" hx-swap="outerHTML" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="flex" style="gap:.5rem;flex-wrap:wrap;align-items:flex-end">
+      <div><label>Stage</label>{{ image_form.stage }}</div>
+      <div style="flex:1"><label>Caption (optional)</label>{{ image_form.caption }}</div>
+    </div>
+    <label>Images</label>{{ image_form.images }}
+    <button class="btn mt" type="submit"><i class="ph ph-image"></i> Add images</button>
+  </form>
+</div>

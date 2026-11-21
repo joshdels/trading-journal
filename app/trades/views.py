@@ -2,8 +2,8 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from .forms import TradeForm, TradeReviewForm
-from .models import Strategy, Trade
+from .forms import TradeForm, TradeImageUploadForm, TradeReviewForm
+from .models import Strategy, Trade, TradeImage
 
 
 @login_required
@@ -35,6 +35,46 @@ def trade_detail(request, pk):
     return render(request, "trades/trade_detail.html", {
         "trade": trade,
         "review_form": TradeReviewForm(instance=getattr(trade, "review", None)),
+        "image_form": TradeImageUploadForm(),
+        "images_by_stage": _images_by_stage(trade),
+    })
+
+
+def _images_by_stage(trade):
+    images = list(trade.images.all())
+    return [
+        (label, [i for i in images if i.stage == value])
+        for value, label in TradeImage.Stage.choices
+    ]
+
+
+@login_required
+def trade_image_upload(request, pk):
+    """Attach one or more images to a trade at a given stage (HTMX)."""
+    trade = get_object_or_404(Trade, pk=pk)
+    form = TradeImageUploadForm(request.POST, request.FILES)
+    if form.is_valid():
+        start = trade.images.filter(stage=form.cleaned_data["stage"]).count()
+        for i, img in enumerate(form.cleaned_data["images"]):
+            TradeImage.objects.create(
+                trade=trade, image=img, stage=form.cleaned_data["stage"],
+                caption=form.cleaned_data["caption"], order=start + i,
+            )
+    return render(request, "partials/trade_images.html", {
+        "trade": trade,
+        "image_form": TradeImageUploadForm(),
+        "images_by_stage": _images_by_stage(trade),
+    })
+
+
+@login_required
+def trade_image_delete(request, pk, image_id):
+    trade = get_object_or_404(Trade, pk=pk)
+    TradeImage.objects.filter(pk=image_id, trade=trade).delete()
+    return render(request, "partials/trade_images.html", {
+        "trade": trade,
+        "image_form": TradeImageUploadForm(),
+        "images_by_stage": _images_by_stage(trade),
     })
 
 

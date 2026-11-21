@@ -35,14 +35,10 @@
   </div>
 </div>
 
-{% if trade.images.all %}
-<div class="panel mt"><h2>Screenshots</h2>
-  <div class="grid grid-4">
-    {% for img in trade.images.all %}
-      <figure style="margin:0"><img src="{{ img.image.url }}" style="width:100%;border-radius:6px" alt="{{ img.caption }}">
-        <figcaption class="muted">{{ img.caption }}</figcaption></figure>
-    {% endfor %}
-  </div>
+<div class="panel mt">
+  <h2><i class="ph ph-images"></i> Screenshots</h2>
+  <p class="muted">Add entry and exit charts now; come back in 2–3 days to add the post-trade
+    screenshots for your review.</p>
+  {% include "partials/trade_images.html" %}
 </div>
-{% endif %}
 {% endblock %}

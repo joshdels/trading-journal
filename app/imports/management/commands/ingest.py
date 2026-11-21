@@ -10,8 +10,8 @@ from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
 
-from accounts.models import TradingAccount
 from api.mt5.parsers import CsvParser
+from app.accounts.models import TradingAccount
 from app.imports.services import import_rows
 
 

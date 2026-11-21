@@ -2,7 +2,31 @@ from django import forms
 
 from app.journal.models import TradeReview
 
-from .models import Trade
+from .models import Trade, TradeImage
+
+
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    """A FileField that accepts several files from one <input multiple>."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("widget", MultipleFileInput())
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single = super().clean
+        if isinstance(data, (list, tuple)):
+            return [single(d, initial) for d in data]
+        return [single(data, initial)]
+
+
+class TradeImageUploadForm(forms.Form):
+    stage = forms.ChoiceField(choices=TradeImage.Stage.choices)
+    caption = forms.CharField(max_length=160, required=False)
+    images = MultipleFileField(help_text="Select one or more images")
 
 
 class TradeForm(forms.ModelForm):
