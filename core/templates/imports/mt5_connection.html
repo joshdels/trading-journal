@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Connect Myfxbook · Trading Journal{% endblock %}
+{% block content %}
+<div class="flex space">
+  <div>
+    <p class="mb-1 text-xs font-semibold uppercase tracking-[.2em] text-emerald-400">Free cloud synchronization</p>
+    <h1>Connect Myfxbook</h1>
+    <p class="muted -mt-3">Connect MT5 to Myfxbook once, then keep permanent journal history here.</p>
+  </div>
+  <a class="btn btn-ghost" href="{% url 'inbox' %}"><i class="ph ph-arrow-left"></i> Inbox</a>
+</div>
+
+<div class="grid grid-2">
+  <section class="panel">
+    {% if account_form %}
+      <div class="mb-4 grid h-11 w-11 place-items-center rounded-xl bg-emerald-400/10 text-xl text-emerald-300"><i class="ph ph-wallet"></i></div>
+      <h2>Choose your trading account</h2>
+      <p class="muted">Select the Myfxbook account you want permanently synchronized with this journal.</p>
+      <form method="post">{% csrf_token %}<input type="hidden" name="action" value="select">{{ account_form.as_p }}
+        <button class="btn mt" type="submit"><i class="ph ph-link"></i> Connect account</button>
+      </form>
+    {% else %}
+      <div class="mb-4 grid h-11 w-11 place-items-center rounded-xl bg-emerald-400/10 text-xl text-emerald-300"><i class="ph ph-cloud-arrow-down"></i></div>
+      <h2>Sign in to Myfxbook</h2>
+      <p class="muted">Your password is sent directly to Myfxbook to create an IP-bound API session. It is never saved by Trading Journal.</p>
+      <form method="post">{% csrf_token %}<input type="hidden" name="action" value="login">{{ login_form.as_p }}
+        <button class="btn mt" type="submit"><i class="ph ph-sign-in"></i> Continue</button>
+      </form>
+      <p class="muted mt text-xs">No Myfxbook account yet? <a href="https://www.myfxbook.com" target="_blank" rel="noopener">Connect your IC Markets account on Myfxbook first <i class="ph ph-arrow-square-out"></i></a>.</p>
+    {% endif %}
+  </section>
+  <section class="panel">
+    <h2><i class="ph ph-info text-sky-300"></i> Free sync design</h2>
+    <ol class="space-y-4 text-sm text-slate-300">
+      <li class="flex gap-3"><span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-800 text-xs font-bold">1</span><span>Connect your MT5 investor login to Myfxbook once.</span></li>
+      <li class="flex gap-3"><span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-800 text-xs font-bold">2</span><span>Trading Journal checks Myfxbook every 5 minutes by default—the freshest practical free setup.</span></li>
+      <li class="flex gap-3"><span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-800 text-xs font-bold">3</span><span>Imported transactions remain in your journal after they leave Myfxbook's latest-50 API window.</span></li>
+    </ol>
+    <div class="mt rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-xs text-amber-100/75">Myfxbook has its own refresh delay, so a 5-minute check is not a real-time guarantee. The initial API import contains only its latest 50 transactions. Use CSV once if you need older history.</div>
+  </section>
+</div>
+
+<section class="panel mt">
+  <div class="flex space"><h2>Connected accounts</h2><span class="muted text-sm">Powered by Myfxbook</span></div>
+  <table><thead><tr><th>Account</th><th>Status</th><th>Session</th><th>Last sync</th><th>Actions</th><th>Last error</th></tr></thead><tbody>
+  {% for connection in connections %}
+    <tr>
+      <td><strong>{{ connection.account.name }}</strong><br><small class="muted">{{ connection.account.login }} · {{ connection.account.server }}</small></td>
+      <td><span class="{% if connection.state == 'connected' %}pos{% else %}muted{% endif %}">{{ connection.state|title }}</span></td>
+      <td class="muted">Expires {{ connection.session_expires_at|date:"M d, Y"|default:"—" }}</td>
+      <td class="muted">{{ connection.last_sync_at|date:"M d, Y H:i"|default:"Not yet" }}</td>
+      <td><form method="post" action="{% url 'mt5_sync' connection.pk %}">{% csrf_token %}<button class="btn btn-ghost" type="submit"><i class="ph ph-arrows-clockwise"></i> Sync</button></form></td>
+      <td class="neg">{{ connection.last_error|default:"—" }}</td>
+    </tr>
+  {% empty %}<tr><td colspan="6" class="muted">No Myfxbook accounts connected yet.</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+{% endblock %}

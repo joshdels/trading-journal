@@ -1,0 +1,55 @@
+<div id="trade-journal">
+  <style>
+    #trade-journal .jr-stage { margin-bottom: 1.1rem; }
+    #trade-journal .jr-stage > h3 { font-size: .95rem; margin: .2rem 0 .5rem; }
+    #trade-journal .jr-block { position: relative; border-left: 2px solid var(--border); padding: 0 0 .9rem 1rem; margin-left: .35rem; }
+    #trade-journal .jr-block::before { content: ""; position: absolute; left: -6px; top: .25rem; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+    #trade-journal .jr-time { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: .78rem; }
+    #trade-journal .jr-note { margin: .25rem 0 .4rem; white-space: pre-wrap; }
+    #trade-journal .jr-imgs { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .5rem; }
+    #trade-journal .jr-imgs img { width: 100%; height: 95px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); display: block; }
+    #trade-journal .jr-empty { color: var(--muted); font-size: .85rem; margin: .1rem 0 .3rem; }
+    #trade-journal .jr-compose { border-top: 1px solid var(--border); padding-top: .9rem; margin-top: .4rem; }
+    #trade-journal .jr-del { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: .9rem; }
+    #trade-journal .jr-del:hover { color: var(--red); }
+    #trade-journal .jr-row { display: flex; gap: .6rem; flex-wrap: wrap; }
+    #trade-journal .jr-row > div { flex: 1; min-width: 160px; }
+  </style>
+
+  {% for value, label, blocks in blocks_by_stage %}
+    <div class="jr-stage">
+      <h3>{{ label }} <span class="muted">({{ blocks|length }})</span></h3>
+      {% for b in blocks %}
+        <div class="jr-block">
+          <div class="jr-time">
+            <span><i class="ph ph-clock"></i> {{ b.logged_at|date:"M d, Y · H:i" }}</span>
+            <button class="jr-del" title="Delete entry"
+                    hx-post="{% url 'journal_block_delete' trade.pk b.id %}"
+                    hx-target="#trade-journal" hx-swap="outerHTML"
+                    hx-confirm="Delete this journal entry?"><i class="ph ph-trash"></i></button>
+          </div>
+          {% if b.note %}<div class="jr-note">{{ b.note }}</div>{% endif %}
+          {% if b.images.all %}
+            <div class="jr-imgs">
+              {% for im in b.images.all %}
+                <a href="{{ im.image.url }}" target="_blank"><img src="{{ im.image.url }}" alt="{{ im.caption }}"></a>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </div>
+      {% empty %}<p class="jr-empty">No {{ label|lower }} entries yet.</p>{% endfor %}
+    </div>
+  {% endfor %}
+
+  <form class="jr-compose" hx-post="{% url 'journal_block_add' trade.pk %}"
+        hx-target="#trade-journal" hx-swap="outerHTML" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="jr-row">
+      <div><label>Stage</label>{{ journal_form.stage }}</div>
+      <div><label>When</label>{{ journal_form.logged_at }}</div>
+    </div>
+    <label>Note</label>{{ journal_form.note }}
+    <label>Images</label>{{ journal_form.images }}
+    <button class="btn mt" type="submit"><i class="ph ph-plus-circle"></i> Add journal entry</button>
+  </form>
+</div>

@@ -1,0 +1,183 @@
+{% load static journal_extras %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Trading Journal{% endblock %}</title>
+  <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
+  <link rel="shortcut icon" href="{% static 'favicon.svg' %}">
+  <script>
+    /* Apply the saved theme before paint to avoid a flash. */
+    (function () {
+      try {
+        var t = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+    function toggleTheme() {
+      var el = document.documentElement;
+      var next = el.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      el.setAttribute('data-theme', next);
+      try { localStorage.setItem('theme', next); } catch (e) {}
+    }
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            ink: '#090e1a',
+            surface: '#111827',
+            brand: '#22c55e',
+          },
+          boxShadow: {
+            panel: '0 18px 50px rgba(0, 0, 0, .22)',
+          },
+        },
+      },
+    }
+  </script>
+  <link href="https://cdn.jsdelivr.net/npm/flowbite@3.1.2/dist/flowbite.min.css" rel="stylesheet">
+  {# Circular country flags for pair logos (TradingView-style). #}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css">
+  {# Shared icon fonts for every template extending this core layout. #}
+  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/regular/style.css">
+  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/bold/style.css">
+  <link rel="stylesheet" href="{% static 'css/theme.css' %}">
+  <script src="https://unpkg.com/htmx.org@2.0.3" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/flowbite@3.1.2/dist/flowbite.min.js" defer></script>
+</head>
+<body class="dark min-h-screen bg-ink text-slate-100 antialiased selection:bg-emerald-400/30">
+{% if user.is_authenticated %}
+<header class="topbar backdrop-blur-xl">
+  <a class="brand group" href="{% url 'portal' %}">
+    <span class="grid h-9 w-9 place-items-center rounded-xl bg-emerald-400/10 text-emerald-400 ring-1 ring-emerald-400/20 transition group-hover:bg-emerald-400/20">
+      <i class="ph ph-chart-line-up text-xl"></i>
+    </span>
+    <span>{{ SITE_NAME }}</span>
+  </a>
+  <button type="button" class="mobile-menu-button" aria-controls="primary-navigation"
+          aria-expanded="false" onclick="toggleMobileNav(this)" title="Open navigation">
+    <i class="ph ph-list" aria-hidden="true"></i><span class="sr-only">Menu</span>
+  </button>
+  <nav id="primary-navigation" aria-label="Primary navigation" hx-boost="true">
+    <a href="{% url 'portal' %}"{% if request.resolver_match.url_name == 'portal' %} class="active" aria-current="page"{% endif %}><i class="ph ph-gauge"></i> Portal</a>
+    <a href="{% url 'trade_list' %}"{% if request.resolver_match.url_name == 'trade_list' or request.resolver_match.url_name == 'trade_detail' or request.resolver_match.url_name == 'trade_create' %} class="active" aria-current="page"{% endif %}><i class="ph ph-list-checks"></i> Trades</a>
+    <a href="{% url 'calendar' %}"{% if request.resolver_match.url_name == 'calendar' %} class="active" aria-current="page"{% endif %}><i class="ph ph-calendar-dots"></i> Calendar</a>
+    <a href="{% url 'charts' %}"{% if request.resolver_match.url_name == 'charts' %} class="active" aria-current="page"{% endif %}><i class="ph ph-chart-bar"></i> Charts</a>
+    <a href="{% url 'weekly_list' %}"{% if request.resolver_match.url_name == 'weekly_list' %} class="active" aria-current="page"{% endif %}><i class="ph ph-notebook"></i> Weekly</a>
+    <a href="{% url 'inbox' %}"{% if request.resolver_match.url_name == 'inbox' or request.resolver_match.url_name == 'mt5_connection' %} class="active" aria-current="page"{% endif %}><i class="ph ph-tray"></i> Inbox{% if inbox_count %} <span class="badge">{{ inbox_count }}</span>{% endif %}</a>
+  </nav>
+  <div class="topbar-right">
+    <button type="button" class="theme-toggle" onclick="toggleTheme()"
+            aria-label="Toggle light and dark theme" title="Toggle theme">
+      <i class="ph ph-moon icon-dark" aria-hidden="true"></i>
+      <i class="ph ph-sun icon-light" aria-hidden="true"></i>
+    </button>
+    <button id="notification-button" data-dropdown-toggle="notification-inbox"
+            data-dropdown-placement="bottom-end" type="button"
+            class="relative grid h-9 w-9 place-items-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-white focus:outline-none focus:ring-4 focus:ring-emerald-400/10"
+            aria-label="Open notification inbox">
+      <i class="ph ph-bell text-xl" aria-hidden="true"></i>
+      {% if inbox_notification_count %}
+        <span class="absolute -right-1 -top-1 min-w-5 rounded-full bg-amber-400 px-1 text-center text-[11px] font-bold leading-5 text-slate-950">{{ inbox_notification_count }}</span>
+      {% endif %}
+    </button>
+    <div id="notification-inbox"
+         class="z-50 hidden w-80 overflow-hidden rounded-xl border border-slate-700 bg-slate-900 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-700 px-4 py-3">
+        <div>
+          <p class="font-semibold text-white">Inbox</p>
+          <p class="text-xs text-slate-400">Myfxbook trades and reviews</p>
+        </div>
+        {% if inbox_notification_count %}<span class="rounded-full bg-amber-400/10 px-2 py-1 text-xs font-semibold text-amber-300">{{ inbox_notification_count }} new</span>{% endif %}
+      </div>
+      <div class="max-h-80 overflow-y-auto">
+        {% for trade in open_trade_notifications %}
+          <a href="{% url 'trade_detail' trade.pk %}#trade-journal" class="flex gap-3 border-b border-slate-800 px-4 py-3 transition hover:bg-slate-800/80 hover:no-underline">
+            <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-400/10 text-emerald-300"><i class="ph ph-trend-up"></i></span>
+            <span class="min-w-0 flex-1">
+              <span class="flex items-center justify-between gap-2"><strong class="text-sm text-slate-100">New open trade</strong><small class="text-[10px] uppercase tracking-wide text-emerald-400">Myfxbook</small></span>
+              <span class="mt-0.5 block text-xs text-slate-400">{{ trade.symbol }} {{ trade.get_direction_display }} · {{ trade.volume }} lots</span>
+              <span class="mt-1 block text-[11px] text-slate-500">Open its journal · {{ trade.created_at|timesince }} ago</span>
+            </span>
+          </a>
+        {% endfor %}
+        {% for trade in review_notifications %}
+          <a href="{% url 'trade_detail' trade.pk %}" class="flex gap-3 border-b border-slate-800 px-4 py-3 transition hover:bg-slate-800/80 hover:no-underline">
+            <span class="symbol-avatar mt-0.5" aria-hidden="true">
+              {% with base_flag=trade.symbol|symbol_base_flag %}
+                <span class="symbol-flag{% if not base_flag %} symbol-commodity symbol-{{ trade.symbol|symbol_base_code }}{% endif %}">{% if base_flag %}<img src="https://flagcdn.com/24x18/{{ base_flag }}.png" alt="">{% else %}{{ trade.symbol|symbol_base_picture }}{% endif %}</span>
+              {% endwith %}
+              {% with quote_flag=trade.symbol|symbol_quote_flag %}
+                <span class="symbol-flag">{% if quote_flag %}<img src="https://flagcdn.com/24x18/{{ quote_flag }}.png" alt="">{% else %}{{ trade.symbol|symbol_quote_picture }}{% endif %}</span>
+              {% endwith %}
+            </span>
+            <span class="min-w-0">
+              <span class="block text-sm font-semibold text-slate-100">Review {{ trade.symbol }}</span>
+              <span class="block truncate text-xs text-slate-400">{{ trade.get_direction_display }} · {{ trade.volume }} lots · due {{ trade.review_due_at|date:"M d, H:i" }}</span>
+            </span>
+          </a>
+        {% empty %}{% if not open_trade_notifications %}
+          <div class="px-5 py-8 text-center">
+            <i class="ph ph-check-circle mb-2 block text-3xl text-emerald-400"></i>
+            <p class="text-sm font-medium text-slate-200">You're all caught up</p>
+            <p class="mt-1 text-xs text-slate-500">No trade reviews are due.</p>
+          </div>
+        {% endif %}{% endfor %}
+      </div>
+      <a href="{% url 'portal' %}" class="block bg-slate-800/60 px-4 py-3 text-center text-sm font-semibold text-emerald-300 hover:bg-slate-800 hover:no-underline">View dashboard</a>
+    </div>
+    <span class="hidden text-sm text-slate-400 lg:inline">{{ user.get_username }}</span>
+    <form method="post" action="{% url 'logout' %}" class="inline">
+      {% csrf_token %}<button class="linklike flex h-9 items-center gap-2 rounded-lg px-2 hover:bg-white/5 hover:text-white" type="submit" title="Sign out" aria-label="Sign out"><i class="ph ph-sign-out"></i><span class="hidden text-sm md:inline">Logout</span></button>
+    </form>
+  </div>
+</header>
+
+{% if is_weekend %}
+<div class="weekend-banner" id="weekend-banner">
+  <span><i class="ph ph-coffee"></i> It's the weekend — time for your weekly review.
+    <a href="{% url 'weekly_list' %}">Open weekly review</a></span>
+  <button type="button" class="weekend-dismiss" aria-label="Dismiss weekend reminder" title="Dismiss"
+          onclick="dismissWeekendBanner()"><i class="ph-bold ph-x" aria-hidden="true"></i></button>
+</div>
+{% endif %}
+{% endif %}
+
+<main class="wrap motion-safe:animate-[fade-in_.35s_ease-out]">
+  {% if messages %}
+    {% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}
+  {% endif %}
+  {% block content %}{% endblock %}
+</main>
+{% if is_weekend %}
+<script>
+  const weekendBanner = document.getElementById('weekend-banner');
+  if (sessionStorage.getItem('weekend-banner-dismissed') === '1') weekendBanner?.remove();
+  function dismissWeekendBanner() {
+    sessionStorage.setItem('weekend-banner-dismissed', '1');
+    weekendBanner?.remove();
+  }
+</script>
+{% endif %}
+<script>
+  function toggleMobileNav(button) {
+    const nav = document.getElementById('primary-navigation');
+    const opening = !nav.classList.contains('nav-open');
+    nav.classList.toggle('nav-open', opening);
+    button.setAttribute('aria-expanded', String(opening));
+    button.querySelector('i')?.classList.toggle('ph-list', !opening);
+    button.querySelector('i')?.classList.toggle('ph-x', opening);
+  }
+  document.addEventListener('htmx:beforeRequest', function (event) {
+    if (event.detail.elt.closest('#primary-navigation')) {
+      document.getElementById('primary-navigation')?.classList.remove('nav-open');
+    }
+  });
+</script>
+</body>
+</html>

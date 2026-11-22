@@ -97,8 +97,35 @@ def monthly_view(request):
     })
 
 
+# Stable palette for the donut segments (one colour per pair slice).
+_DONUT_COLORS = [
+    "#22c55e", "#38bdf8", "#f59e0b", "#a78bfa", "#ef4444",
+    "#2dd4bf", "#fb7185", "#eab308", "#818cf8", "#f97316",
+    "#10b981", "#60a5fa",
+]
+
+
 @login_required
 def charts(request):
     pairs = pips_by_pair()
     max_abs = max((abs(p["pips"]) for p in pairs), default=1) or 1
-    return render(request, "analytics/charts.html", {"pairs": pairs, "max_abs": max_abs})
+
+    # Donut of trade-count distribution per pair (always non-negative).
+    total_trades = sum(p["count"] for p in pairs) or 1
+    segments, stops, acc = [], [], 0.0
+    for i, p in enumerate(sorted(pairs, key=lambda x: -x["count"])):
+        color = _DONUT_COLORS[i % len(_DONUT_COLORS)]
+        share = p["count"] / total_trades * 100
+        start, acc = acc, acc + share
+        stops.append(f"{color} {start:.2f}% {acc:.2f}%")
+        segments.append({
+            "symbol": p["symbol"], "count": p["count"], "pnl": p["pnl"],
+            "color": color, "pct": round(share),
+        })
+    donut_gradient = "conic-gradient(" + ", ".join(stops) + ")" if segments else ""
+
+    return render(request, "analytics/charts.html", {
+        "pairs": pairs, "max_abs": max_abs,
+        "donut_segments": segments, "donut_gradient": donut_gradient,
+        "total_trades": sum(p["count"] for p in pairs),
+    })

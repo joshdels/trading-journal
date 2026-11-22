@@ -3,21 +3,20 @@
 ## Layout
 
 ```
-config/            Django project (settings, urls, wsgi)
+config/            Django project (environment settings, urls, wsgi)
 app/               Domain apps (business logic + HTML/HTMX views)
-  core/            Shared templates (base, partials), template tags, globals, helpers
   accounts/        TradingAccount + rate-limited auth
   trades/          Trade, Strategy, Tag, TradeImage — the core model
   journal/         TradeReview (2-day) + WeeklyReview
   imports/         ImportBatch + CSV import flow
   analytics/       Portal, calendar, charts (aggregation only, no models)
   ai_review/       App-facing AI review hook (delegates to api/)
-api/               External integration boundary (talks OUT)
-  mt5/             MT5 data: file parsers + live-sync client placeholder
+core/              Shared templates, static assets, template tags, integration libraries
+api/               Reserved external-provider boundary
   ai/              AI-review provider backends (none wired yet)
-templates/         Page templates per app
-static/css/        theme.css (MT5 dark palette)
-media/             Uploaded trade screenshots (tracked with the app)
+core/templates/    Page templates and HTMX partials
+core/static/       Theme CSS and app assets
+media/             Local dev uploads; production media uses private B2
 tests/             pytest suite
 ```
 
@@ -44,7 +43,7 @@ swapping a CSV import for live MT5 sync, or turning on AI review, touches only
 
 ```
 MT5 export (CSV)
-   -> api.mt5.parsers.CsvParser.parse()      # normalise rows
+   -> core.lib.mt5.parsers.CsvParser.parse() # normalise rows
    -> app.imports.services.import_rows()      # dedup by ticket, create Trades
    -> Trade rows
    -> app.analytics.services                  # calendar / pips / portfolio stats

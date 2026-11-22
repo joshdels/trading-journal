@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Weekly review · Trading Journal{% endblock %}
+{% block content %}
+<div class="flex space">
+  <div>
+    <h1>Weekly reviews</h1>
+    <p class="muted" style="margin-top:-.4rem">Close out the week — what worked, what to adjust, your best and worst trade.</p>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="panel">
+    <div class="panel-head">
+      <span class="panel-ic"><i class="ph ph-note-pencil"></i></span>
+      <h2>New weekly review</h2>
+    </div>
+
+    <form method="post" class="review-form">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="form-alert">{{ form.non_field_errors }}</div>{% endif %}
+
+      <div class="field">
+        <label for="{{ form.week_ending.id_for_label }}">Week ending</label>
+        {{ form.week_ending }}
+        <p class="help">{{ form.week_ending.help_text }}</p>
+        {{ form.week_ending.errors }}
+      </div>
+
+      <div class="field">
+        <label for="{{ form.summary.id_for_label }}">Summary</label>
+        {{ form.summary }}
+        <p class="help">How did the week go overall?</p>
+        {{ form.summary.errors }}
+      </div>
+
+      <div class="form-row">
+        <div class="field">
+          <label for="{{ form.what_worked.id_for_label }}"><i class="ph ph-check-circle" style="color:var(--green)"></i> What worked</label>
+          {{ form.what_worked }}
+          {{ form.what_worked.errors }}
+        </div>
+        <div class="field">
+          <label for="{{ form.adjustments.id_for_label }}"><i class="ph ph-wrench" style="color:var(--warn)"></i> Adjustments</label>
+          {{ form.adjustments }}
+          {{ form.adjustments.errors }}
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="field">
+          <label for="{{ form.best_trade.id_for_label }}"><i class="ph ph-trend-up" style="color:var(--green)"></i> Best trade</label>
+          {{ form.best_trade }}
+          {{ form.best_trade.errors }}
+        </div>
+        <div class="field">
+          <label for="{{ form.worst_trade.id_for_label }}"><i class="ph ph-trend-down" style="color:var(--red)"></i> Worst trade</label>
+          {{ form.worst_trade }}
+          {{ form.worst_trade.errors }}
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn" type="submit"><i class="ph ph-check"></i> Save review</button>
+        <span class="help">Saved reviews appear on the right.</span>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <span class="panel-ic"><i class="ph ph-clock-counter-clockwise"></i></span>
+      <h2>Past reviews</h2>
+      {% if reviews %}<span class="count-pill">{{ reviews|length }}</span>{% endif %}
+    </div>
+
+    {% for r in reviews %}
+      <div class="review-card">
+        <div class="review-top">
+          <span class="week-badge"><i class="ph ph-calendar-check"></i> {{ r.week_ending }}</span>
+        </div>
+        <p class="review-summary">{{ r.summary|truncatewords:34|default:"No summary written." }}</p>
+        {% if r.best_trade or r.worst_trade %}
+          <div class="review-trades">
+            {% if r.best_trade %}<span class="rt-chip rt-best"><i class="ph ph-trend-up"></i> {{ r.best_trade.symbol }}</span>{% endif %}
+            {% if r.worst_trade %}<span class="rt-chip rt-worst"><i class="ph ph-trend-down"></i> {{ r.worst_trade.symbol }}</span>{% endif %}
+          </div>
+        {% endif %}
+      </div>
+    {% empty %}
+      <div class="empty-state">
+        <i class="ph ph-notebook"></i>
+        <p>No weekly reviews yet.</p>
+        <span class="help">Fill in the form to log your first one.</span>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

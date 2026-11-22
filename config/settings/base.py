@@ -1,15 +1,20 @@
 """
-Django settings for the Trading Journal.
+Shared Django settings for the Trading Journal.
 
-Development-first: SQLite + local media. Production toggles (Cloudflare,
-secure cookies, HTTPS proxy header) switch on when DEBUG is False and the
-relevant environment variables are set. See docs/deployment.md.
+This module holds everything common to every environment. The concrete
+environment is chosen by ``config/settings/__init__.py`` via ``DJANGO_ENV``:
+
+    DJANGO_ENV=dev   -> config.settings.dev   (default; SQLite + local media)
+    DJANGO_ENV=prod  -> config.settings.prod  (Cloudflare + secure cookies)
+
+See docs/deployment.md.
 """
 
 import os
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+# base.py lives at config/settings/base.py, so the repo root is three levels up.
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 
 def env_bool(name, default=False):
@@ -21,7 +26,7 @@ SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",
     "django-insecure-dev-only-d@8(y2u4begn9e0-wr7$x)-9s$zr5t1vpr4wn0g",
 )
-DEBUG = env_bool("DJANGO_DEBUG", True)
+# DEBUG is set per-environment in dev.py / prod.py.
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 CSRF_TRUSTED_ORIGINS = [
     o for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o
@@ -35,8 +40,9 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    # Local apps (under the app/ package)
-    "app.core",
+    # Project-wide shared app
+    "core",
+    # Domain apps (under the app/ package)
     "app.accounts",
     "app.trades",
     "app.imports",
@@ -47,6 +53,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -60,7 +67,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],
+        "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -68,7 +75,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "app.core.context_processors.site_globals",
+                "core.context_processors.site_globals",
                 "app.analytics.context_processors.pending_reviews",
             ],
         },
@@ -78,11 +85,34 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 # --- Database -----------------------------------------------------------
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+# A DATABASE_URL (Postgres) wins in any environment when present; otherwise
+# each environment falls back to its own default (SQLite in dev). Defined in
+# base so both dev and prod share one resolver.
+from urllib.parse import parse_qs, unquote, urlparse  # noqa: E402
+
+
+def database_from_url(url):
+    parsed = urlparse(url)
+    query = parse_qs(parsed.query)
+    return {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": parsed.path.lstrip("/"),
+        "USER": unquote(parsed.username or ""),
+        "PASSWORD": unquote(parsed.password or ""),
+        "HOST": parsed.hostname or "localhost",
+        "PORT": parsed.port or 5432,
+        "CONN_MAX_AGE": 60,
+        "OPTIONS": {
+            "sslmode": os.environ.get(
+                "POSTGRES_SSLMODE", query.get("sslmode", ["require"])[0]
+            )
+        },
     }
+
+
+SQLITE_DATABASE = {
+    "ENGINE": "django.db.backends.sqlite3",
+    "NAME": BASE_DIR / "db.sqlite3",
 }
 
 # --- Auth ---------------------------------------------------------------
@@ -104,13 +134,46 @@ USE_TZ = True
 
 # --- Static & media -----------------------------------------------------
 STATIC_URL = "static/"
-STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    # Plain static storage by default so dev/tests need no collectstatic.
+    # prod.py swaps in WhiteNoise's hashed+compressed manifest storage.
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+}
+
+# Backblaze B2 through its S3-compatible endpoint. Keep the bucket private;
+# image fields receive short-lived signed URLs instead of public object URLs.
+if b2_bucket := os.environ.get("B2_BUCKET_NAME"):
+    STORAGES["default"] = {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "access_key": os.environ.get("B2_KEY_ID"),
+            "secret_key": os.environ.get("B2_APPLICATION_KEY"),
+            "bucket_name": b2_bucket,
+            "endpoint_url": os.environ.get("B2_ENDPOINT_URL"),
+            "region_name": os.environ.get("B2_REGION", "us-west-004"),
+            "default_acl": None,
+            "querystring_auth": True,
+            "querystring_expire": int(os.environ.get("B2_SIGNED_URL_SECONDS", "3600")),
+            "file_overwrite": False,
+        },
+    }
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Myfxbook transaction timestamps use the connected broker's local timezone.
+MYFXBOOK_BROKER_TIMEZONE = os.environ.get("MYFXBOOK_BROKER_TIMEZONE", TIME_ZONE)
+# Myfxbook has its own upstream delay and documents no general rate limit for
+# personal account endpoints. Five minutes is a deliberately conservative,
+# fresh polling interval; never configure below 60 seconds.
+MYFXBOOK_SYNC_INTERVAL_SECONDS = max(
+    int(os.environ.get("MYFXBOOK_SYNC_INTERVAL_SECONDS", "300")), 60
+)
 
 # --- Rate limiting (django-ratelimit) -----------------------------------
 # Uses the default cache. Login view is decorated in accounts/views.py.
@@ -121,16 +184,5 @@ CACHES = {
     }
 }
 
-# --- Production hardening (only when DEBUG is off) -----------------------
-# Cloudflare sits in front in prod: it terminates TLS and shields from spam
-# bots. Trust its forwarded-proto header so Django knows requests are HTTPS.
-if not DEBUG:
-    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-    SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", True)
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-    SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "2592000"))
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    X_FRAME_OPTIONS = "DENY"
-    # Cloudflare passes the real visitor IP here; used by ratelimit keys.
-    # See docs/deployment.md for the trusted-IP note.
+# Environment-specific settings (DEBUG, DATABASES, security hardening) live in
+# config/settings/dev.py and config/settings/prod.py, which import * from here.

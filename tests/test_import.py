@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from app.accounts.models import TradingAccount
 from app.imports.services import import_rows
 from app.trades.models import Trade
-from api.mt5.parsers import CsvParser
+from core.lib.mt5.parsers import CsvParser
 
 pytestmark = pytest.mark.django_db
 

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Plans · Trading Journal{% endblock %}
+{% block content %}
+<div class="flex space">
+  <h1><i class="ph ph-crosshair"></i> Plans</h1>
+  <a class="btn" href="{% url 'plan_create' %}"><i class="ph ph-plus"></i> New plan</a>
+</div>
+<p class="muted">Floating trade ideas you captured before the fill. Link them to the real
+  booked trade from the <a href="{% url 'inbox' %}">Inbox</a> once it syncs in.</p>
+
+<div class="panel">
+  <h2>Open</h2>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Symbol</th><th>Dir</th><th>Planned entry</th><th>Target</th><th>Strategy</th><th>Captured</th></tr></thead>
+      <tbody>
+      {% for p in plans %}
+        <tr>
+          <td><a href="{% url 'trade_detail' p.pk %}">{{ p.symbol }}</a></td>
+          <td><span class="chip-{{ p.direction }}">{{ p.get_direction_display }}</span></td>
+          <td>{{ p.entry_price }}</td>
+          <td class="muted">{{ p.exit_price|default:"—" }}</td>
+          <td class="muted">{{ p.strategy.name|default:"—" }}</td>
+          <td class="muted">{{ p.entry_time|date:"M d H:i" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="muted">No open plans. Capture one with “New plan”.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if realized %}
+<div class="panel mt">
+  <h2>Recently realised</h2>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Symbol</th><th>Dir</th><th>Became</th></tr></thead>
+      <tbody>
+      {% for p in realized %}
+        <tr>
+          <td>{{ p.symbol }}</td>
+          <td><span class="chip-{{ p.direction }}">{{ p.get_direction_display }}</span></td>
+          <td>{% if p.realized_trade %}<a href="{% url 'trade_detail' p.realized_trade.pk %}">booked trade →</a>{% else %}<span class="muted">—</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,51 @@
+services:
+  - type: web
+    name: trading-journal
+    runtime: python
+    buildCommand: uv sync --frozen --no-dev && uv run python manage.py collectstatic --noinput
+    startCommand: uv run python manage.py migrate --noinput && uv run gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+    healthCheckPath: /health/
+    envVars:
+      - key: DJANGO_ENV
+        value: prod
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_ALLOWED_HOSTS
+        sync: false
+      - key: DJANGO_CSRF_TRUSTED_ORIGINS
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: POSTGRES_SSLMODE
+        value: require
+      - key: B2_BUCKET_NAME
+        sync: false
+      - key: B2_KEY_ID
+        sync: false
+      - key: B2_APPLICATION_KEY
+        sync: false
+      - key: B2_ENDPOINT_URL
+        sync: false
+      - key: B2_REGION
+        sync: false
+
+  - type: worker
+    name: trading-journal-myfxbook
+    runtime: python
+    buildCommand: uv sync --frozen --no-dev
+    startCommand: uv run python manage.py sync_myfxbook --watch
+    envVars:
+      - key: DJANGO_ENV
+        value: prod
+      - key: DJANGO_SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: POSTGRES_SSLMODE
+        value: require
+      - key: MYFXBOOK_EMAIL
+        sync: false
+      - key: MYFXBOOK_PASSWORD
+        sync: false
+      - key: MYFXBOOK_SYNC_INTERVAL_SECONDS
+        value: "300"

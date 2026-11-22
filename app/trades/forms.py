@@ -2,7 +2,7 @@ from django import forms
 
 from app.journal.models import TradeReview
 
-from .models import Trade, TradeImage
+from .models import JournalBlock, Trade, TradeImage
 
 
 class MultipleFileInput(forms.ClearableFileInput):
@@ -29,6 +29,27 @@ class TradeImageUploadForm(forms.Form):
     images = MultipleFileField(help_text="Select one or more images")
 
 
+class JournalBlockForm(forms.Form):
+    """Compose one journal log entry: stage, timestamp, note, and/or images."""
+
+    stage = forms.ChoiceField(choices=JournalBlock.Stage.choices)
+    logged_at = forms.DateTimeField(
+        required=False,
+        widget=forms.DateTimeInput(attrs={"type": "datetime-local"}),
+        help_text="Leave blank for now",
+    )
+    note = forms.CharField(
+        required=False, widget=forms.Textarea(attrs={"rows": 2, "placeholder": "What happened / your thinking…"})
+    )
+    images = MultipleFileField(required=False, help_text="Attach one or more screenshots")
+
+    def clean(self):
+        cleaned = super().clean()
+        if not (cleaned.get("note", "").strip() or cleaned.get("images")):
+            raise forms.ValidationError("Add a note or at least one image.")
+        return cleaned
+
+
 class TradeForm(forms.ModelForm):
     class Meta:
         model = Trade
@@ -41,6 +62,29 @@ class TradeForm(forms.ModelForm):
             "entry_time": forms.DateTimeInput(attrs={"type": "datetime-local"}),
             "exit_time": forms.DateTimeInput(attrs={"type": "datetime-local"}),
             "notes": forms.Textarea(attrs={"rows": 3}),
+        }
+
+
+class PlanForm(forms.ModelForm):
+    """Capture a trade idea before the real fill exists: intended entry/exit,
+    thesis and setup. Numbers here are intentions, not booked results."""
+
+    class Meta:
+        model = Trade
+        fields = [
+            "account", "symbol", "direction", "volume",
+            "entry_price", "exit_price", "sl", "tp", "entry_time",
+            "strategy", "tags", "notes",
+        ]
+        labels = {
+            "entry_price": "Planned entry",
+            "exit_price": "Target / planned exit",
+            "entry_time": "Idea captured at",
+            "notes": "Thesis",
+        }
+        widgets = {
+            "entry_time": forms.DateTimeInput(attrs={"type": "datetime-local"}),
+            "notes": forms.Textarea(attrs={"rows": 3, "placeholder": "Why this trade? Setup, triggers, risk…"}),
         }
 
 

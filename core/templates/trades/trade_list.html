@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Trades · Trading Journal{% endblock %}
+{% block content %}
+<div class="flex space">
+  <div><p class="mb-1 text-xs font-semibold uppercase tracking-[.2em] text-emerald-400">Journal</p><h1>Trades</h1></div>
+  <div class="flex" style="gap:.5rem">
+    <a class="btn btn-ghost" href="{% url 'plan_list' %}"><i class="ph ph-crosshair"></i> Plans</a>
+    <a class="btn" href="{% url 'trade_create' %}"><i class="ph ph-plus"></i> New trade</a>
+  </div>
+</div>
+
+<form class="filter-bar panel mt" method="get">
+  <span class="filter-label"><i class="ph ph-funnel"></i> Filter</span>
+  <div class="select-field">
+    <label>Symbol</label>
+    <div class="select-wrap">
+      <select name="symbol" onchange="this.form.submit()">
+        <option value="">All symbols</option>
+        {% for s in symbols %}<option value="{{ s }}" {% if s == active_symbol %}selected{% endif %}>{{ s }}</option>{% endfor %}
+      </select>
+      <i class="ph ph-caret-down"></i>
+    </div>
+  </div>
+  <div class="select-field">
+    <label>Strategy</label>
+    <div class="select-wrap">
+      <select name="strategy" onchange="this.form.submit()">
+        <option value="">All strategies</option>
+        {% for s in strategies %}<option value="{{ s.id }}" {% if active_strategy == s.id|stringformat:'s' %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+      </select>
+      <i class="ph ph-caret-down"></i>
+    </div>
+  </div>
+  {% if active_symbol or active_strategy %}
+    <a class="btn-ghost btn-sm" href="{% url 'trade_list' %}"><i class="ph ph-x"></i> Clear</a>
+  {% endif %}
+</form>
+
+<div class="panel mt">{% include "partials/trade_table.html" with trades=trades %}</div>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load journal_extras %}
+{% block title %}{{ trade.symbol }} · Trade{% endblock %}
+{% block content %}
+<div class="flex space">
+  <h1>{{ trade.symbol }} <span class="chip-{{ trade.direction }}">{{ trade.get_direction_display }}</span> {{ trade.volume }} lots
+    {% if trade.is_plan %}<span class="tag"><i class="ph ph-crosshair"></i> Plan</span>{% endif %}</h1>
+  <a class="muted" href="{% if trade.is_plan %}{% url 'plan_list' %}{% else %}{% url 'trade_list' %}{% endif %}">← {% if trade.is_plan %}All plans{% else %}All trades{% endif %}</a>
+</div>
+
+{% if trade.is_plan %}
+  <div class="panel" style="border-left:3px solid var(--accent)">
+    <p class="muted" style="margin:0">
+      <i class="ph ph-crosshair"></i>
+      {% if trade.plan_status == 'realized' and trade.realized_trade %}
+        Realised — this plan was linked to a <a href="{% url 'trade_detail' trade.realized_trade.pk %}">booked trade</a>.
+      {% else %}
+        This is a captured plan. Numbers are intentions. Link it to the real fill from the <a href="{% url 'inbox' %}">Inbox</a> once it syncs in.
+      {% endif %}
+    </p>
+  </div>
+{% elif trade.source_plans.exists %}
+  <div class="panel" style="border-left:3px solid var(--accent)">
+    <p class="muted" style="margin:0"><i class="ph ph-link"></i> Linked from a plan you captured earlier — its journal and screenshots are below.</p>
+  </div>
+{% endif %}
+
+<div class="grid grid-2">
+  <div class="panel">
+    <h2>Execution</h2>
+    <table>
+      <tr><th>Entry</th><td>{{ trade.entry_price }} @ {{ trade.entry_time|date:"Y-m-d H:i" }}</td></tr>
+      <tr><th>Exit</th><td>{% if trade.exit_price %}{{ trade.exit_price }} @ {{ trade.exit_time|date:"Y-m-d H:i" }}{% else %}<span class="tag">Open</span>{% endif %}</td></tr>
+      <tr><th>SL / TP</th><td>{{ trade.sl|default:"—" }} / {{ trade.tp|default:"—" }}</td></tr>
+      <tr><th>Pips</th><td class="{% if trade.pips >= 0 %}pos{% else %}neg{% endif %}">{{ trade.pips|default:"—" }}</td></tr>
+      <tr><th>Net P/L</th><td class="{{ trade.net_profit|pnl_class }}">{{ trade.net_profit|money }}</td></tr>
+      <tr><th>Strategy</th><td>{{ trade.strategy.name|default:"—" }}</td></tr>
+      <tr><th>Tags</th><td>{% for tag in trade.tags.all %}<span class="tag">{{ tag.name }}</span> {% endfor %}</td></tr>
+    </table>
+    {% if trade.notes %}<p class="muted mt">{{ trade.notes }}</p>{% endif %}
+  </div>
+
+  <div class="panel review-card" id="post-analysis">
+    <h2><i class="ph ph-note-pencil"></i> 2-day review</h2>
+    {% if trade.review_completed %}
+      {% include "partials/review_done.html" with trade=trade %}
+    {% elif trade.review_overdue %}
+      <p class="muted">Due {{ trade.review_due_at|date:"M d" }} — complete it below.</p>
+      {% include "partials/review_form.html" with trade=trade form=review_form %}
+    {% else %}
+      <p class="muted">Review opens {{ trade.review_due_at|date:"M d, H:i" }} (2 days after exit).</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="panel mt">
+  <h2><i class="ph ph-notebook"></i> Trade journal</h2>
+  <p class="muted">A running log by stage. Add notes and screenshots at entry and exit now,
+    then come back in 2–3 days to log your post-trade review. Each entry is timestamped.</p>
+  {% include "partials/trade_journal.html" %}
+</div>
+{% endblock %}

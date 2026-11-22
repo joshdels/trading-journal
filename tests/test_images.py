@@ -32,7 +32,7 @@ def logged_in(client):
 
 @pytest.fixture
 def trade():
-    user = get_user_model().objects.create_user("owner", password="x")
+    user, _ = get_user_model().objects.get_or_create(username="joshua")
     acct = TradingAccount.objects.create(owner=user, name="A")
     now = timezone.now()
     return Trade.objects.create(

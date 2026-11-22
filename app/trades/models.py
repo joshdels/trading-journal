@@ -41,6 +41,33 @@ class Tag(models.Model):
         return self.name
 
 
+class TradeQuerySet(models.QuerySet):
+    def real(self):
+        return self.filter(is_plan=False)
+
+    def plans(self):
+        return self.filter(is_plan=True)
+
+
+class RealTradeManager(models.Manager):
+    """Default manager: excludes planned (floating) trades so they can never
+    leak into P/L calendars, charts or totals. Use Trade.all_objects or
+    Trade.plans to reach plans deliberately."""
+
+    def get_queryset(self):
+        return TradeQuerySet(self.model, using=self._db).filter(is_plan=False)
+
+
+class AllTradeManager(models.Manager):
+    def get_queryset(self):
+        return TradeQuerySet(self.model, using=self._db)
+
+
+class PlanManager(models.Manager):
+    def get_queryset(self):
+        return TradeQuerySet(self.model, using=self._db).filter(is_plan=True)
+
+
 class Trade(models.Model):
     class Direction(models.TextChoices):
         BUY = "buy", "Buy"
@@ -58,7 +85,7 @@ class Trade(models.Model):
         "accounts.TradingAccount", on_delete=models.CASCADE, related_name="trades"
     )
     mt5_ticket = models.BigIntegerField(
-        null=True, blank=True, unique=True,
+        null=True, blank=True,
         help_text="MT5 deal/position ticket — dedup key for re-imports",
     )
     symbol = models.CharField(max_length=20)
@@ -85,6 +112,33 @@ class Trade(models.Model):
 
     status = models.CharField(max_length=6, choices=Status.choices, default=Status.CLOSED)
     source = models.CharField(max_length=6, choices=Source.choices, default=Source.MANUAL)
+    external_source = models.CharField(max_length=20, blank=True)
+    external_key = models.CharField(max_length=80, blank=True)
+
+    # Inbox triage: imported/synced trades land unconfirmed and surface in the
+    # Inbox until the trader acknowledges them. Manual entries are born True.
+    confirmed = models.BooleanField(
+        default=True, help_text="False while awaiting triage in the Inbox"
+    )
+
+    # --- Plan ("floating" trade) ----------------------------------------
+    # A plan captures the moment/thesis before the real fill exists. It never
+    # counts toward P/L (excluded by the default manager). When the broker book
+    # delivers the real trade, the plan is linked to it and archived.
+    class PlanStatus(models.TextChoices):
+        PLANNED = "planned", "Planned"
+        REALIZED = "realized", "Realized"
+        DISCARDED = "discarded", "Discarded"
+
+    is_plan = models.BooleanField(default=False)
+    plan_status = models.CharField(
+        max_length=9, choices=PlanStatus.choices, default=PlanStatus.PLANNED
+    )
+    # On a plan: the real Trade it became. On a real trade: reverse is source_plans.
+    realized_trade = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="source_plans",
+    )
 
     # Post-trade review scheduling (2-day queue).
     review_due_at = models.DateTimeField(null=True, blank=True)
@@ -96,11 +150,29 @@ class Trade(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # objects (default) hides plans so analytics/calendar/charts stay truthful;
+    # all_objects and plans reach them when needed.
+    objects = RealTradeManager()
+    all_objects = AllTradeManager()
+    plans = PlanManager()
+
     class Meta:
+        base_manager_name = "all_objects"
         ordering = ["-entry_time"]
         indexes = [
             models.Index(fields=["symbol"]),
             models.Index(fields=["exit_time"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["account", "mt5_ticket"],
+                name="unique_mt5_ticket_per_account",
+            ),
+            models.UniqueConstraint(
+                fields=["account", "external_source", "external_key"],
+                name="unique_external_trade_per_account",
+                condition=models.Q(external_key__gt=""),
+            ),
         ]
 
     def __str__(self):
@@ -158,3 +230,49 @@ class TradeImage(models.Model):
 
     def __str__(self):
         return self.caption or f"{self.get_stage_display()} image #{self.pk}"
+
+
+class JournalBlock(models.Model):
+    """A timestamped log entry in a trade's journal, grouped by stage.
+
+    Wagtail/Notion-style: you append blocks over time. Each block carries an
+    optional note and zero or more images, so the journal reads as a log of
+    text + screenshots rather than one controlled upload.
+    """
+
+    class Stage(models.TextChoices):
+        ENTRY = "entry", "Entry"
+        EXIT = "exit", "Exit"
+        POST = "post", "Post-trade"
+
+    trade = models.ForeignKey(
+        Trade, on_delete=models.CASCADE, related_name="journal_blocks"
+    )
+    stage = models.CharField(max_length=5, choices=Stage.choices, default=Stage.ENTRY)
+    note = models.TextField(blank=True)
+    logged_at = models.DateTimeField(
+        default=timezone.now, help_text="When this was logged (date & time)"
+    )
+    order = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["logged_at", "order", "id"]
+
+    def __str__(self):
+        return f"{self.get_stage_display()} log @ {self.logged_at:%Y-%m-%d %H:%M}"
+
+
+class JournalBlockImage(models.Model):
+    block = models.ForeignKey(
+        JournalBlock, on_delete=models.CASCADE, related_name="images"
+    )
+    image = models.ImageField(upload_to="journal/%Y/%m/")
+    caption = models.CharField(max_length=160, blank=True)
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["order", "id"]
+
+    def __str__(self):
+        return self.caption or f"Block image #{self.pk}"

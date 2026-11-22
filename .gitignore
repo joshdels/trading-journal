@@ -16,9 +16,8 @@ staticfiles/
 *.log
 local_settings.py
 
-# Media: trade screenshots are stored with the app (tracked in git).
-# Only ignore throwaway seed/demo generated images if you add them.
-media/_tmp/
+# Development uploads stay local; production images live in private B2.
+media/
 
 # Environment / secrets
 .env

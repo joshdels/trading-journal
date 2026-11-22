@@ -37,12 +37,12 @@ class Command(BaseCommand):
     def handle(self, *args, **opts):
         User = get_user_model()
         user, created = User.objects.get_or_create(
-            username="joshua", defaults={"is_staff": True, "is_superuser": True}
+            username="admin", defaults={"is_staff": True, "is_superuser": True}
         )
         if created:
-            user.set_password("changeme123")
+            user.set_password("admin123")
             user.save()
-            self.stdout.write(self.style.WARNING("Created user 'joshua' / password 'changeme123'"))
+            self.stdout.write(self.style.WARNING("Created user 'admin' / password 'admin123'"))
 
         account, _ = TradingAccount.objects.get_or_create(
             owner=user, name=DEMO_ACCOUNT,

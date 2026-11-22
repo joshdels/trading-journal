@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load journal_extras %}
+{% block title %}Portal · Trading Journal{% endblock %}
+{% block content %}
+<div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+  <div>
+    <p class="mb-1 text-xs font-semibold uppercase tracking-[.2em] text-emerald-400">Performance overview</p>
+    <h1 class="!mb-0">Your trading dashboard</h1>
+  </div>
+  <a class="btn" href="{% url 'trade_create' %}"><i class="ph ph-plus"></i> Log trade</a>
+</div>
+
+<div class="grid grid-4">
+  <div class="panel stat"><div class="label">Net P/L</div>
+    <div class="value {{ stats.net_pnl|pnl_class }}">{{ stats.net_pnl|money }}</div></div>
+  <div class="panel stat"><div class="label">Win rate</div><div class="value">{{ stats.win_rate }}%</div></div>
+  <div class="panel stat"><div class="label">Trades</div><div class="value">{{ stats.total_trades }}</div>
+    <small class="muted">{{ stats.wins }}W / {{ stats.losses }}L</small></div>
+  <div class="panel stat"><div class="label">Open</div><div class="value">{{ stats.open_trades }}</div></div>
+</div>
+
+<div class="grid grid-2 mt">
+  <div class="panel">
+    <div class="cal-head"><h2>{{ cal_label }}</h2>
+      <span class="{{ month_pnl|pnl_class }}">{{ month_pnl|money }}</span></div>
+    {% include "partials/calendar_grid.html" with mini=1 %}
+    <a class="muted" href="{% url 'calendar' %}">Open full calendar →</a>
+  </div>
+
+  <div class="panel">
+    <h2><i class="ph ph-bell-ringing"></i> Reviews due ({{ due|length }})</h2>
+    {% for t in due %}
+      <div class="review-list-item">
+        <a class="review-symbol" href="{% url 'trade_detail' t.pk %}">
+          <span class="symbol-avatar" aria-hidden="true">
+            {% with base_flag=t.symbol|symbol_base_flag %}
+              <span class="symbol-flag{% if not base_flag %} symbol-commodity symbol-{{ t.symbol|symbol_base_code }}{% endif %}">{% if base_flag %}<img src="https://flagcdn.com/24x18/{{ base_flag }}.png" alt="">{% else %}{{ t.symbol|symbol_base_picture }}{% endif %}</span>
+            {% endwith %}
+            {% with quote_flag=t.symbol|symbol_quote_flag %}
+              <span class="symbol-flag">{% if quote_flag %}<img src="https://flagcdn.com/24x18/{{ quote_flag }}.png" alt="">{% else %}{{ t.symbol|symbol_quote_picture }}{% endif %}</span>
+            {% endwith %}
+          </span>
+          <span>{{ t.symbol }} <span class="trade-direction chip-{{ t.direction }}">{{ t.get_direction_display }}</span></span>
+        </a>
+        <small class="muted">due {{ t.review_due_at|date:"M d" }}</small>
+      </div>
+    {% empty %}<p class="muted">Nothing pending. Good.</p>{% endfor %}
+  </div>
+</div>
+
+<div class="panel mt">
+  <h2>Recent trades</h2>
+  {% include "partials/trade_table.html" with trades=recent %}
+</div>
+{% endblock %}

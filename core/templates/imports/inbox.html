@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% load journal_extras %}
+{% block title %}Inbox · Trading Journal{% endblock %}
+{% block content %}
+<div class="flex space">
+  <h1><i class="ph ph-tray"></i> Inbox{% if action_count %} <span class="badge">{{ action_count }}</span>{% endif %}</h1>
+  <div class="flex" style="gap:.5rem">
+    <a class="btn btn-ghost" href="{% url 'plan_create' %}"><i class="ph ph-crosshair"></i> New plan</a>
+    <a class="btn btn-ghost" href="{% url 'mt5_connection' %}"><i class="ph ph-cloud-arrow-down"></i> Connect MT5</a>
+  </div>
+</div>
+<p class="muted">Your journal action center: finish reports for synced trades, complete due post-trade analysis, and close out the trading week.</p>
+
+<div class="grid grid-4 inbox-actions">
+  <a class="panel inbox-action" href="#synced-reports">
+    <span class="panel-ic"><i class="ph ph-cloud-arrow-down"></i></span>
+    <span><strong>Needs journal report</strong><small>{{ pending_count }} synced trade{{ pending_count|pluralize }} awaiting confirmation</small></span>
+    <span class="count-pill">{{ pending_count }}</span>
+  </a>
+  <a class="panel inbox-action" href="#post-analysis">
+    <span class="panel-ic inbox-action-warn"><i class="ph ph-brain"></i></span>
+    <span><strong>2-day analysis</strong><small>{{ due_reviews|length }} post-trade review{{ due_reviews|length|pluralize }} due</small></span>
+    <span class="count-pill">{{ due_reviews|length }}</span>
+  </a>
+  <a class="panel inbox-action" href="{% url 'weekly_list' %}">
+    <span class="panel-ic"><i class="ph ph-notebook"></i></span>
+    <span><strong>Weekly review</strong><small>{% if weekly_review_due %}Week ending {{ week_ending|date:"M d" }} is ready{% else %}Nothing due right now{% endif %}</small></span>
+    <span class="count-pill">{% if weekly_review_due %}1{% else %}0{% endif %}</span>
+  </a>
+  <a class="panel inbox-action" href="{% url 'mt5_connection' %}">
+    <span class="panel-ic"><i class="ph ph-arrows-clockwise"></i></span>
+    <span><strong>Sync source</strong><small>Manage Myfxbook and run a manual sync</small></span>
+    <i class="ph ph-caret-right muted"></i>
+  </a>
+</div>
+
+<div class="panel mt" id="synced-reports">
+  <div class="flex space">
+    <h2>Synced trades needing a journal report</h2>
+    {% if pending_rows %}
+      <form method="post" action="{% url 'inbox_confirm' %}">
+        {% csrf_token %}
+        <button class="btn" type="submit"><i class="ph ph-checks"></i> Confirm all</button>
+      </form>
+    {% endif %}
+  </div>
+  {% if pending_rows %}
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr>
+        <th>Symbol</th><th>Dir</th><th>Entry</th><th>Exit</th><th>Net P/L</th><th>Source</th><th></th>
+      </tr></thead>
+      <tbody>
+      {% for t, plan in pending_rows %}
+        <tr>
+          <td><a href="{% url 'trade_detail' t.pk %}">{{ t.symbol }}</a></td>
+          <td><span class="chip-{{ t.direction }}">{{ t.get_direction_display }}</span></td>
+          <td class="muted">{{ t.entry_time|date:"M d H:i" }}</td>
+          <td class="muted">{% if t.exit_time %}{{ t.exit_time|date:"M d H:i" }}{% else %}<span class="tag">Open</span>{% endif %}</td>
+          <td class="{{ t.net_profit|pnl_class }}">{{ t.net_profit|money }}</td>
+          <td class="muted">{{ t.external_source|default:t.get_source_display }}</td>
+          <td style="white-space:nowrap">
+            <a class="btn btn-ghost" href="{% url 'trade_detail' t.pk %}#trade-journal"><i class="ph ph-notebook"></i> Journal</a>
+            {% if plan %}
+              <form method="post" action="{% url 'inbox_link' %}" style="display:inline">
+                {% csrf_token %}
+                <input type="hidden" name="trade" value="{{ t.pk }}">
+                <input type="hidden" name="plan" value="{{ plan.pk }}">
+                <button class="btn" type="submit" title="Merge your captured plan into this booked trade">
+                  <i class="ph ph-link"></i> Link plan
+                </button>
+              </form>
+            {% endif %}
+            <form method="post" action="{% url 'inbox_confirm' %}" style="display:inline">
+              {% csrf_token %}
+              <input type="hidden" name="trade" value="{{ t.pk }}">
+              <button class="btn btn-ghost" type="submit"><i class="ph ph-check"></i> Confirm</button>
+            </form>
+          </td>
+        </tr>
+        {% if plan %}
+        <tr><td colspan="7" class="muted" style="padding-top:0">
+          <i class="ph ph-crosshair"></i> Matches your plan from {{ plan.entry_time|date:"M d H:i" }}
+          (planned entry {{ plan.entry_price }}{% if plan.strategy %} · {{ plan.strategy.name }}{% endif %})
+        </td></tr>
+        {% endif %}
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="muted">No newly synced trades need a journal report.</p>
+  {% endif %}
+</div>
+
+<div class="panel mt" id="post-analysis">
+  <div class="panel-head">
+    <span class="panel-ic inbox-action-warn"><i class="ph ph-brain"></i></span>
+    <h2>2-day post-trade analysis</h2>
+    <span class="count-pill">{{ due_reviews|length }}</span>
+  </div>
+  {% for trade in due_reviews %}
+    <a class="inbox-review-row" href="{% url 'trade_detail' trade.pk %}#post-analysis">
+      <span><strong>{{ trade.symbol }}</strong> <span class="chip-{{ trade.direction }}">{{ trade.get_direction_display }}</span></span>
+      <span class="muted">Closed {{ trade.exit_time|date:"M d, H:i" }} · due {{ trade.review_due_at|date:"M d" }}</span>
+      <span class="btn btn-ghost btn-sm">Review <i class="ph ph-arrow-right"></i></span>
+    </a>
+  {% empty %}
+    <p class="muted">No post-trade analysis is due.</p>
+  {% endfor %}
+</div>
+
+{% if open_plans %}
+<div class="panel mt">
+  <h2><i class="ph ph-crosshair"></i> Open plans</h2>
+  <p class="muted">Captured ideas waiting for their real fill. They never count toward your P/L.</p>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Symbol</th><th>Dir</th><th>Planned entry</th><th>Target</th><th>Captured</th></tr></thead>
+      <tbody>
+      {% for p in open_plans %}
+        <tr>
+          <td><a href="{% url 'trade_detail' p.pk %}">{{ p.symbol }}</a></td>
+          <td><span class="chip-{{ p.direction }}">{{ p.get_direction_display }}</span></td>
+          <td>{{ p.entry_price }}</td>
+          <td class="muted">{{ p.exit_price|default:"—" }}</td>
+          <td class="muted">{{ p.entry_time|date:"M d H:i" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<details class="panel mt inbox-import-tools">
+  <summary><i class="ph ph-upload-simple"></i> Import tools and recent batches</summary>
+<div class="grid grid-2 mt">
+  <div class="panel">
+    <h2>Upload deal export (CSV)</h2>
+    <p class="muted">Export your deal history from MT5 (Account History → right-click → Report → CSV),
+      then upload it here. Re-imports are safe — duplicate tickets are skipped.</p>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}{{ form.as_p }}
+      <button class="btn mt" type="submit"><i class="ph ph-upload-simple"></i> Import</button>
+    </form>
+  </div>
+  <div class="panel">
+    <h2>Recent imports</h2>
+    <table>
+      <thead><tr><th>When</th><th>Source</th><th>Created</th><th>Skipped</th></tr></thead>
+      <tbody>
+      {% for b in batches %}
+        <tr><td class="muted">{{ b.created_at|date:"M d H:i" }}</td><td>{{ b.source_name|default:b.get_kind_display }}</td>
+          <td class="pos">{{ b.rows_created }}</td><td class="muted">{{ b.rows_skipped }}</td></tr>
+      {% empty %}<tr><td colspan="4" class="muted">No imports yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+</details>
+{% endblock %}

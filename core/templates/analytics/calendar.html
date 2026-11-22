@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Calendar · Trading Journal{% endblock %}
+{% block content %}
+<div class="flex space">
+  <h1>P/L Calendar</h1>
+  <div class="toggle shadow-sm" role="tablist" aria-label="Calendar aggregation">
+    <button class="toggle-btn active" id="tab-daily"
+            hx-get="{% url 'daily_view' %}" hx-target="#cal-view" hx-swap="outerHTML"
+            role="tab" aria-selected="true" onclick="setAgg('daily')"><i class="ph ph-calendar-dots"></i> Daily</button>
+    <button class="toggle-btn" id="tab-monthly"
+            hx-get="{% url 'monthly_view' %}" hx-target="#cal-view" hx-swap="outerHTML"
+            role="tab" aria-selected="false" onclick="setAgg('monthly')"><i class="ph ph-squares-four"></i> Monthly</button>
+  </div>
+</div>
+
+{% include "partials/daily_view.html" %}
+
+<script>
+  function setAgg(which){
+    document.getElementById('tab-daily').classList.toggle('active', which==='daily');
+    document.getElementById('tab-monthly').classList.toggle('active', which==='monthly');
+    document.getElementById('tab-daily').setAttribute('aria-selected', which==='daily');
+    document.getElementById('tab-monthly').setAttribute('aria-selected', which==='monthly');
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}New plan · Trading Journal{% endblock %}
+{% block content %}
+<h1><i class="ph ph-crosshair"></i> New plan</h1>
+<p class="muted">Capture the idea now — thesis, intended entry and target. When the real
+  fill arrives from your broker, link it to this plan from the Inbox. A plan never
+  counts toward your P/L.</p>
+<div class="panel" style="max-width:680px">
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button class="btn mt" type="submit"><i class="ph ph-check"></i> Save plan</button>
+    <a class="btn btn-ghost mt" href="{% url 'plan_list' %}">Cancel</a>
+  </form>
+</div>
+{% endblock %}

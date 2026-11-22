@@ -1,0 +1,40 @@
+{% load journal_extras %}
+<div id="cal-wrap">
+{% if not mini %}
+<div class="cal-head">
+  <button type="button"
+          class="calendar-nav-btn"
+          hx-get="{% url 'calendar_month' %}?year={{ prev_year }}&month={{ prev_month }}"
+          hx-target="#cal-wrap" hx-swap="outerHTML" aria-label="Previous month" title="Previous month">
+    <i class="ph-bold ph-caret-left text-lg" aria-hidden="true"></i>
+  </button>
+  <div class="text-center">
+    <h2 class="!mb-0">{{ cal_label }}</h2>
+    <span class="text-sm font-semibold {{ month_pnl|pnl_class }}">{{ month_pnl|money }}</span>
+  </div>
+  <button type="button"
+          class="calendar-nav-btn"
+          hx-get="{% url 'calendar_month' %}?year={{ next_year }}&month={{ next_month }}"
+          hx-target="#cal-wrap" hx-swap="outerHTML" aria-label="Next month" title="Next month">
+    <i class="ph-bold ph-caret-right text-lg" aria-hidden="true"></i>
+  </button>
+</div>
+{% endif %}
+<div class="cal">
+  {% for d in "SMTWTFS" %}<div class="dow">{{ d }}</div>{% endfor %}
+  {% for week in weeks %}{% for cell in week %}
+    {% if cell %}
+      <div class="cell {% if cell.count %}{% if cell.pnl >= 0 %}win{% else %}loss{% endif %}{% endif %}"
+           {% if cell.count and not mini %}hx-get="{% url 'day_trades' cal_year cal_month cell.day %}"
+           hx-target="#day-panel" hx-swap="innerHTML" style="cursor:pointer"{% endif %}
+           {% if cell.count and mini %}onclick="location.href='{% url 'calendar' %}'" style="cursor:pointer" title="Open calendar"{% endif %}>
+        <div class="d">{{ cell.day }}</div>
+        {% if cell.count %}
+          <div class="pnl {{ cell.pnl|pnl_class }}">{{ cell.pnl|money }}</div>
+          <small>{{ cell.count }} trade{{ cell.count|pluralize }}</small>
+        {% endif %}
+      </div>
+    {% else %}<div class="cell empty"></div>{% endif %}
+  {% endfor %}{% endfor %}
+</div>
+</div>

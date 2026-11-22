@@ -1,0 +1,18 @@
+{% load journal_extras %}
+<table>
+  <thead><tr><th>Date</th><th>Symbol</th><th>Dir</th><th>Lots</th><th>Pips</th><th>P/L</th><th>Strategy</th><th></th></tr></thead>
+  <tbody>
+  {% for t in trades %}
+    <tr>
+      <td class="muted">{{ t.exit_time|date:"M d" }}</td>
+      <td><a class="sym-link" href="{% url 'trade_detail' t.pk %}">{{ t.symbol|pair_logo }}<span>{{ t.symbol }}</span></a></td>
+      <td class="chip-{{ t.direction }}">{{ t.get_direction_display }}</td>
+      <td>{{ t.volume }}</td>
+      <td class="{% if t.pips >= 0 %}pos{% else %}neg{% endif %}">{{ t.pips }}</td>
+      <td class="{{ t.net_profit|pnl_class }}">{{ t.net_profit|money }}</td>
+      <td class="muted">{{ t.strategy.name|default:"—" }}</td>
+      <td>{% if t.review_overdue %}<span class="tag" style="color:var(--warn)">review</span>{% endif %}</td>
+    </tr>
+  {% empty %}<tr><td colspan="8" class="muted">No trades.</td></tr>{% endfor %}
+  </tbody>
+</table>
